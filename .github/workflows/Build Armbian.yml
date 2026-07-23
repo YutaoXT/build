@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-armbian:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-26.04   # 按你的要求使用 26.04
 
     steps:
       - name: Checkout build repo
@@ -14,21 +14,13 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          # Ubuntu 26.04 中 qemu-user-static 已变为虚拟包，实际安装 qemu-user-binfmt 和 qemu-user
+          # Ubuntu 26.04 中 qemu-user-static 已拆分为两个包
           sudo apt-get install -y wget git gcc make device-tree-compiler u-boot-tools \
                                   bc bison flex libssl-dev \
                                   qemu-user-binfmt qemu-user
 
-      - name: Enable binfmt support
-        run: |
-          # 确保 binfmt 已注册（安装包后通常自动注册，但显式启用更稳妥）
-          sudo update-binfmts --enable qemu-arm || true
-          sudo update-binfmts --enable qemu-aarch64 || true
-          sudo update-binfmts --enable qemu-riscv64 || true
-
       - name: Build Armbian image
         run: |
-          # 给 Docker 容器添加特权模式，以允许 binfmt_misc 操作
           export DOCKER_EXTRA_ARGS="--privileged"
           ./compile.sh BOARD=orangepilite \
                          BRANCH=current \
@@ -37,8 +29,17 @@ jobs:
                          BUILD_MINIMAL=yes \
                          KERNEL_CONFIGURE=no
 
+      # 调试：列出 output 目录下的文件（可选，但有助于排查）
+      - name: List output files
+        run: |
+          echo "=== content of output/images/ ==="
+          ls -la output/images/ || echo "output/images/ does not exist"
+          echo "=== search for image files ==="
+          find output -type f \( -name "*.img" -o -name "*.img.xz" -o -name "*.xz" \) | head -20
+
+      # 上传步骤：使用宽泛通配符匹配所有文件
       - name: Upload image
         uses: actions/upload-artifact@v4
         with:
           name: armbian-image
-          path: output/images/*.img.xz
+          path: output/images/*   # 匹配 output/images/ 下所有文件
