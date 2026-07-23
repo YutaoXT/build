@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-armbian:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-26.04   # 按你的要求，使用 26.04
 
     steps:
       - name: Checkout build repo
@@ -14,11 +14,22 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
+          # Ubuntu 26.04 中部分包名可能与 24.04 略有差异，但以下核心包基本一致
           sudo apt-get install -y wget git gcc make device-tree-compiler u-boot-tools \
-                                  bc bison flex libssl-dev
+                                  bc bison flex libssl-dev \
+                                  qemu-user-static
+
+      - name: Enable binfmt support
+        run: |
+          # 明确启用 binfmt，忽略可能的警告
+          sudo update-binfmts --enable qemu-arm || true
+          sudo update-binfmts --enable qemu-aarch64 || true
+          sudo update-binfmts --enable qemu-riscv64 || true
 
       - name: Build Armbian image
         run: |
+          # 给 Docker 容器添加特权模式，以允许 binfmt_misc 操作
+          export DOCKER_EXTRA_ARGS="--privileged"
           ./compile.sh BOARD=orangepilite \
                          BRANCH=current \
                          RELEASE=resolute \
