@@ -1,0 +1,22 @@
+jobs:
+  build:
+    runs-on: ubuntu-latest   # 目前是 24.04，未来可能变化
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y wget git gcc make device-tree-compiler u-boot-tools \
+                              bc bison flex libssl-dev  # 补充几个内核编译常用的工具
+          
+      - name: Build Armbian
+        run: |
+          ./compile.sh BOARD=orangepilite RELEASE=resolute BUILD_DESKTOP=no BUILD_MINIMAL=yes KERNEL_CONFIGURE=no
+
+      - name: Upload image
+        uses: actions/upload-artifact@v4
+        with:
+          name: armbian-image
+          path: output/images/*.img.xz
