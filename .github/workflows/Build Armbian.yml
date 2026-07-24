@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-armbian:
-    runs-on: ubuntu-26.04   # 按你的要求使用 26.04
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout build repo
@@ -14,7 +14,6 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          # Ubuntu 26.04 中 qemu-user-static 已拆分为两个包
           sudo apt-get install -y wget git gcc make device-tree-compiler u-boot-tools \
                                   bc bison flex libssl-dev \
                                   qemu-user-binfmt qemu-user
@@ -29,17 +28,40 @@ jobs:
                          BUILD_MINIMAL=yes \
                          KERNEL_CONFIGURE=no
 
-      # 调试：列出 output 目录下的文件（可选，但有助于排查）
+      # 可选：列出文件以确认路径
       - name: List output files
         run: |
-          echo "=== content of output/images/ ==="
-          ls -la output/images/ || echo "output/images/ does not exist"
+          echo "=== output/images/ ==="
+          ls -la output/images/ || echo "Directory does not exist"
           echo "=== search for image files ==="
           find output -type f \( -name "*.img" -o -name "*.img.xz" -o -name "*.xz" \) | head -20
 
-      # 上传步骤：使用宽泛通配符匹配所有文件
-      - name: Upload image
+      - name: Upload artifact (for manual download)
         uses: actions/upload-artifact@v4
         with:
           name: armbian-image
-          path: output/images/*   # 匹配 output/images/ 下所有文件
+          path: output/images/*
+
+      # ==================== 自动发布到 Release ====================
+      - name: Generate release tag and name
+        id: vars
+        run: |
+          # 使用当前时间生成 tag，例如 v2026.07.23-123456
+          TAG="v$(date +'%Y.%m.%d-%H%M%S')"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "release_name=Armbian for Orange Pi Lite ($TAG)" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: ${{ steps.vars.outputs.release_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          files: |
+            output/images/*.img.xz
+            output/images/*.img
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
